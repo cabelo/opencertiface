@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions name="opencertiface"
+ targetNamespace="http://opencertiface.com.br/bioCubeVF103.wsdl"
+ xmlns:tns="http://opencertiface.com.br/bioCubeVF103.wsdl"
+ xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+ xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+ xmlns:ns="urn:opencertiface"
+ xmlns:SOAP="http://schemas.xmlsoap.org/wsdl/soap/"
+ xmlns:HTTP="http://schemas.xmlsoap.org/wsdl/http/"
+ xmlns:MIME="http://schemas.xmlsoap.org/wsdl/mime/"
+ xmlns:DIME="http://schemas.xmlsoap.org/ws/2002/04/dime/wsdl/"
+ xmlns:WSDL="http://schemas.xmlsoap.org/wsdl/"
+ xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+<types>
+
+ <schema targetNamespace="urn:opencertiface"
+  xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:ns="urn:opencertiface"
+  xmlns="http://www.w3.org/2001/XMLSchema"
+  elementFormDefault="unqualified"
+  attributeFormDefault="unqualified">
+  <import namespace="http://schemas.xmlsoap.org/soap/encoding/"/>
+ </schema>
+
+</types>
+
+<message name="pingRequest">
+ <part name="stringHello" type="xsd:string"/><!-- ns__ping::stringHello -->
+</message>
+
+<message name="pingResponse">
+ <part name="result" type="xsd:string"/><!-- ns__ping::result -->
+</message>
+
+<message name="verifyImgRequest">
+ <part name="template1" type="xsd:base64Binary"/><!-- ns__verifyImg::template1 -->
+ <part name="template2" type="xsd:base64Binary"/><!-- ns__verifyImg::template2 -->
+ <part name="id" type="xsd:string"/><!-- ns__verifyImg::id -->
+</message>
+
+<message name="verifyImgResponse">
+ <part name="result" type="xsd:string"/><!-- ns__verifyImg::result -->
+</message>
+
+<portType name="opencertifacePortType">
+ <operation name="ping">
+  <documentation>Service definition of function ns__ping</documentation>
+  <input message="tns:pingRequest"/>
+  <output message="tns:pingResponse"/>
+ </operation>
+ <operation name="verifyImg">
+  <documentation>Service definition of function ns__verifyImg</documentation>
+  <input message="tns:verifyImgRequest"/>
+  <output message="tns:verifyImgResponse"/>
+ </operation>
+</portType>
+
+<binding name="opencertiface" type="tns:opencertifacePortType">
+ <SOAP:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+ <operation name="ping">
+  <SOAP:operation style="rpc" soapAction=""/>
+  <input>
+     <SOAP:body use="encoded" namespace="urn:opencertiface" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+  </input>
+  <output>
+     <SOAP:body use="encoded" namespace="urn:opencertiface" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+  </output>
+ </operation>
+ <operation name="verifyImg">
+  <SOAP:operation style="rpc" soapAction=""/>
+  <input>
+     <SOAP:body use="encoded" namespace="urn:opencertiface" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+  </input>
+  <output>
+     <SOAP:body use="encoded" namespace="urn:opencertiface" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+  </output>
+ </operation>
+</binding>
+
+<service name="opencertiface">
+ <documentation>service</documentation>
+ <port name="opencertiface" binding="tns:opencertiface">
+  <SOAP:address location="http://opencertiface.com.br/bioCubeVF103.cgi"/>
+ </port>
+</service>
+
+</definitions>

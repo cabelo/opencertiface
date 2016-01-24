@@ -1,0 +1,10 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/opt/Modoki/openbr/3rdparty/stasm4.0.0/build/stasm_automoc.cpp
+
