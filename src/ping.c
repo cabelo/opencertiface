@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <sys/sysinfo.h>
 
+//#include "functionSRV.h"
 
 //! Return message of the ping funcion 
 //char *msgOk;

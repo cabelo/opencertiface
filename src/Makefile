@@ -1,7 +1,7 @@
 VERSION     = 1.0.0
 RELEASE     = RC2
 CC          = gcc -DLINUX
-CXX         = g++
+#CXX         = g++
 OBJSBIN1    = webServerVerifyFace.o       soapServer.o soapC.o functionSRV.o  ping.o verifyAll.o 
 OBJSBIN2    = webServerVerifyFaceThread.o soapServer.o soapC.o functionSRV.o  ping.o verifyAll.o
 LIBS1       = -lgsoap
@@ -42,7 +42,7 @@ soapC.o: soapC.c
 	$(CC) -DLINUX -DWITH_NOEMPTYSTRUCT -c $(INCLUDE) $< -o $@
 
 verifyAll.o: verifyAll.cpp 
-	$(CXX) $(IFACE) -DLINUX -DWITH_NOEMPTYSTRUCT -c $(INCLUDE)   $< -o $@
+	$(CC) $(IFACE) -DLINUX -DWITH_NOEMPTYSTRUCT -c $(INCLUDE)   $< -o $@
 
 ping.o: ping.c
 	$(CC) -DLINUX -DWITH_NOEMPTYSTRUCT -c $(INCLUDE) $< -o $@
