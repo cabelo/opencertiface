@@ -26,5 +26,5 @@ O próximo grande salto evolutivo da humanidade será a descoberta de que cooper
 A todos os membros da comunidade de código aberto que levam a sério o ESPÍRITO HACKER e utilizam essa força para o bem, aos que defendem a "LIBERDADE DA INFORMAÇÃO", aos que me incentivaram desde 1998 em meus primeiros contatos com o Software Livre, aos que se sacrificam para divulgar informações, aos que amam os seus idealismos acima do capitalismo e que lutam para fazerem um mundo melhor sem prejudicar terceiros. A todos que defendem estes ideais, um **MUITO OBRIGADO** !
 
 
-
 Autor: Alessandro de Oliveira Faria (A.K.A. Cabelo) contato: cabelo@opensuse.org
+![](images/cabelo-jedi03.png)
