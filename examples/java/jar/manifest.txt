@@ -1,0 +1,4 @@
+Manifest-Version: 1.0.0
+Created-By: Alessandro de Oliveira Faria
+Main-Class: opencertiface
+

@@ -86,7 +86,7 @@
 <service name="opencertiface">
  <documentation>service</documentation>
  <port name="opencertiface" binding="tns:opencertiface">
-  <SOAP:address location="http://opencertiface.com.br/opencertiface.cgi"/>
+  <SOAP:address location="http://localhost:8081"/>
  </port>
 </service>
 

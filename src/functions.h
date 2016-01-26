@@ -1,8 +1,8 @@
 //gsoap ns service name:        opencertiface service
 //gsoap ns service style:       rpc
 //gsoap ns service encoding:    encoded
-//gsoap ns service namespace:   http://opencertiface.com.br/bioCubeVF103.wsdl
-//gsoap ns service location:    http://opencertiface.com.br/bioCubeVF103.cgi
+//gsoap ns service namespace:   http://opencertiface.com.br/opencertiface.wsdl
+//gsoap ns service location:    http://opencertiface.com.br/opencertiface.cgi
 //
 //gsoap ns schema namespace:    urn:opencertiface 
 //

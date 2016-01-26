@@ -1,0 +1,5 @@
+# java verify http://opencertiface.com.br:8081 cabelo0.jpg cabelo4.jpg 000001
+Load image [cabelo0.jpg]
+Load image [cabelo4.jpg]
+Resultado: 0.81439
+

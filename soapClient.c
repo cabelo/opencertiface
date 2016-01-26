@@ -17,14 +17,14 @@ compiling, linking, and/or using OpenSSL is allowed.
 extern "C" {
 #endif
 
-SOAP_SOURCE_STAMP("@(#) soapClient.c ver 2.8.21 2016-01-21 05:33:57 GMT")
+SOAP_SOURCE_STAMP("@(#) soapClient.c ver 2.8.21 2016-01-26 02:36:20 GMT")
 
 
 SOAP_FMAC5 int SOAP_FMAC6 soap_call_ns__ping(struct soap *soap, const char *soap_endpoint, const char *soap_action, char *stringHello, char **result)
 {	struct ns__ping soap_tmp_ns__ping;
 	struct ns__pingResponse *soap_tmp_ns__pingResponse;
 	if (soap_endpoint == NULL)
-		soap_endpoint = "http://opencertiface.com.br/bioCubeVF103.cgi";
+		soap_endpoint = "http://opencertiface.com.br/opencertiface.cgi";
 	soap_begin(soap);
 	soap->encodingStyle = "";
 	soap_tmp_ns__ping.stringHello = stringHello;
@@ -78,7 +78,7 @@ SOAP_FMAC5 int SOAP_FMAC6 soap_call_ns__verifyImg(struct soap *soap, const char 
 {	struct ns__verifyImg soap_tmp_ns__verifyImg;
 	struct ns__verifyImgResponse *soap_tmp_ns__verifyImgResponse;
 	if (soap_endpoint == NULL)
-		soap_endpoint = "http://opencertiface.com.br/bioCubeVF103.cgi";
+		soap_endpoint = "http://opencertiface.com.br/opencertiface.cgi";
 	soap_begin(soap);
 	soap->encodingStyle = "";
 	soap_tmp_ns__verifyImg.template1 = template1;
