@@ -12,7 +12,7 @@ Versão 1.0
 RoadMap
 * Implementar API para cálculo de estimativa de idade
 * Implementar API para cálculo de estimativa de sexo
-* Código exemplo em perl e python
+* Código exemplo em C#, perl e python
 * Tutorial de instalação e utilização do opencertiface
 * Criar biblioteca dinamica para abstrair algoritmo utilizado
 * Melhorar o designer da pagina
