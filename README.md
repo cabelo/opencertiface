@@ -1,4 +1,4 @@
-# opencertiface
+#![](images/banner.png)
 
 Biometria em nuvem para todos!
 
@@ -8,7 +8,7 @@ Versão 1.0
 
 * Lançamento na Campus Party 2016
 * Disponível serviço versão SOAP em C 
-* Código cliente exemplo em C, Java e PHP
+* Código cliente exemplo em C, Java, Bash e PHP
 * Abstração do algoritmo openbr
 
 RoadMap
