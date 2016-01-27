@@ -10,7 +10,8 @@ Versão 1.0
 * Abstração do algoritmo openbr
 
 RoadMap
-
+* Implementar API para cálculo de estimativa de idade
+* Implementar API para cálculo de estimativa de sexo
 * Código exemplo em perl e python
 * Tutorial de instalação e utilização do opencertiface
 * Criar biblioteca dinamica para abstrair algoritmo utilizado
