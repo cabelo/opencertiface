@@ -4,7 +4,7 @@
 
 Versão 1.0
 
-* Lançamento na Campus Party 2016
+* Lançamento na [Campus Party 2016](http://campuse.ro/events/campus-party-brasil-2016/talk/biometria-opensource-focada-para-o-desenvolvedor/)
 * Disponível serviço versão SOAP em C 
 * Código cliente exemplo em C, Java, Bash e PHP
 * Abstração do algoritmo openbr
