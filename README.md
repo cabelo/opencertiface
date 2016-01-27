@@ -1,6 +1,6 @@
 #![](images/banner.png)
 
- O openCertiface é a versão de código aberto do serviço de biometria facial em nuvem [CERTIFACE](https://www.youtube.com/watch?v=iKmaT43kEqM). Esta iniciativa foi somente possível graças á visão diferenciada do Grupo Honda (sócios e investidores da empresa [OITI TECHNOLOGIES](http://oititec.com.br/)). Pois além de apoiar todo trabalho, carregam o espírito colaborativo, com isto trazendo para a empresa o objetivo de utilizar a tecnologia a serviço da sociedade. Sendo assim, agradeço em nome de toda comunidade de software livre por permitir esta contribuição criada para proteger as pessoas do bem.
+ O [openCertiface](http://opencertiface.com.br) é a versão de código aberto do serviço de biometria facial em nuvem [CERTIFACE](https://www.youtube.com/watch?v=iKmaT43kEqM). Esta iniciativa foi somente possível graças á visão diferenciada do Grupo Honda (sócios e investidores da empresa [OITI TECHNOLOGIES](http://oititec.com.br/)). Pois além de apoiar todo trabalho, carregam o espírito colaborativo, com isto trazendo para a empresa o objetivo de utilizar a tecnologia a serviço da sociedade. Sendo assim, agradeço em nome de toda comunidade de software livre por permitir esta contribuição criada para proteger as pessoas do bem.
 
 Versão 1.0
 
