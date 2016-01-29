@@ -18,7 +18,8 @@ RoadMap
 * Melhorar o designer da pagina
 * Criar imagem Linux 
 * Criar pacotes rpm para Fedora, Red Hat, SUSE e openSUSE
-
+* Web service RestFull
+* Modulo do apache
 
 O próximo grande salto evolutivo da humanidade será a descoberta de que cooperar é melhor que competir, pois colaborar atrai amigos competir atrai inimigos...
 
