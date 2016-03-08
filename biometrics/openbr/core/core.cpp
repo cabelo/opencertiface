@@ -67,7 +67,12 @@ struct AlgorithmCore
                model.isEmpty() ? "" : qPrintable(" to " + model));
 
         QScopedPointer<Transform> trainingWrapper(br::wrapTransform(transform.data(), "Stream(readMode=DistributeFrames)"));
-        TemplateList data(TemplateList::fromGallery(input));
+        TemplateList data(TemplateList::fromGallery(input,false));
+
+        if (abs(Globals->crossValidate) > 1)
+            for (int i=data.size()-1; i>=0; i--)
+                if (data[i].file.get<bool>("allPartitions",false))
+                    data.removeAt(i);
 
         if (transform.isNull()) qFatal("Null transform.");
         qDebug("%d Training Files", data.size());
@@ -77,15 +82,19 @@ struct AlgorithmCore
         qDebug("Training Enrollment");
         trainingWrapper->train(data);
 
-        if (!distance.isNull()) {
-            if (Globals->crossValidate > 0)
-                for (int i=data.size()-1; i>=0; i--) if (data[i].file.get<bool>("allPartitions",false)) data.removeAt(i);
-
+        if (!distance.isNull() && distance->trainable()) {
             qDebug("Projecting Enrollment");
             trainingWrapper->projectUpdate(data,data);
 
+            TemplateList distanceData;
+            for (int i=0; i<data.size(); i++)
+                if (!data[i].file.fte && !data[i].file.getBool("FTE"))
+                    distanceData.append(data[i]);
+
+            data.clear();
+
             qDebug("Training Comparison");
-            distance->train(data);
+            distance->train(distanceData);
         }
 
         if (!model.isEmpty()) {
@@ -110,9 +119,11 @@ struct AlgorithmCore
 
     void store(const QString &model) const
     {
-        // Create stream
-        QByteArray data;
-        QDataStream out(&data, QFile::WriteOnly);
+        QtUtils::BlockCompression compressedWrite;
+        QFile outFile(model);
+        compressedWrite.setBasis(&outFile);
+        QDataStream out(&compressedWrite);
+        compressedWrite.open(QFile::WriteOnly);
 
         // Serialize algorithm to stream
         transform->serialize(out);
@@ -131,18 +142,23 @@ struct AlgorithmCore
         if (mode == TransformCompare)
             comparison->serialize(out);
 
-        // Compress and save to file
-        QtUtils::writeFile(model, data, -1);
+        compressedWrite.close();
     }
 
     void load(const QString &model)
     {
-        // Load from file and decompress
-        QByteArray data;
-        QtUtils::readFile(model, data, true);
+        // since we are loading an existing model, add its path to the search list for submodels
+        // assuming it is not already present.
+        QFileInfo finfo(model);
+        QString path = finfo.absolutePath();
+        if (!Globals->modelSearch.contains(path))
+            Globals->modelSearch.append(path);
 
-        // Create stream
-        QDataStream in(&data, QFile::ReadOnly);
+        QtUtils::BlockCompression compressedRead;
+        QFile inFile(model);
+        compressedRead.setBasis(&inFile);
+        QDataStream in(&compressedRead);
+        compressedRead.open(QFile::ReadOnly);
 
         // Load algorithm
         transform = QSharedPointer<Transform>(Transform::deserialize(in));
@@ -169,12 +185,10 @@ struct AlgorithmCore
 
     void enroll(File input, File gallery = File())
     {
-        qDebug("Enrolling %s%s", qPrintable(input.flat()),
-               gallery.isNull() ? "" : qPrintable(" to " + gallery.flat()));
-
+        bool noOutput = false;
         if (gallery.name.isEmpty()) {
             if (input.name.isEmpty()) return;
-            else                      gallery = getMemoryGallery(input);
+            else                      noOutput = true;
         }
 
         bool multiProcess = Globals->file.getBool("multiProcess", false);
@@ -185,9 +199,6 @@ struct AlgorithmCore
             FileList::fromGallery(gallery,true);
             fileExclusion = true;
         }
-
-        Gallery *temp = Gallery::make(input);
-        qint64 total = temp->totalSize();
 
         Transform *enroll = simplifiedTransform.data();
 
@@ -200,17 +211,30 @@ struct AlgorithmCore
         QString outputDesc;
         if (fileExclusion)
             outputDesc = "FileExclusion(" + gallery.flat() + ")+";
-        outputDesc.append("GalleryOutput("+gallery.flat()+")");
+        if (!noOutput)
+            outputDesc.append("GalleryOutput("+gallery.flat()+")+");
+
+        outputDesc = outputDesc + "DiscardTemplates";
         stages.append(progressCounter.data());
 
         QScopedPointer<Transform> pipeline(pipeTransforms(stages));
+        QScopedPointer<Transform> stream(wrapTransform(pipeline.data(), "Stream(readMode=StreamGallery, endPoint="+outputDesc+")"));
 
-        QScopedPointer<Transform> stream(wrapTransform(pipeline.data(), "Stream(readMode=StreamGallery, endPoint="+outputDesc+"+DiscardTemplates)"));
+        foreach (const br::File &file, input.split()) {
+            qDebug("Enrolling %s%s", qPrintable(file.name),
+                    gallery.isNull() ? "" : qPrintable(" to " + gallery.flat()));
 
-        TemplateList data, output;
-        data.append(input);
-        progressCounter->setPropertyRecursive("totalProgress", QString::number(total));
-        stream->projectUpdate(data, output);
+            Gallery *temp = Gallery::make(file);
+            qint64 total = temp->totalSize();
+            delete temp;
+
+            progressCounter->setPropertyRecursive("totalProgress", QString::number(total));
+
+            TemplateList data, output;
+            data.append(file);
+
+            stream->projectUpdate(data, output);
+        }
 
         if (multiProcess)
             delete enroll;
@@ -242,7 +266,7 @@ struct AlgorithmCore
 
     void retrieveOrEnroll(const File &file, QScopedPointer<Gallery> &gallery, FileList &galleryFiles)
     {
-        if (!file.getBool("enroll") && (QStringList() << "gal" << "mem" << "template").contains(file.suffix())) {
+        if (!file.getBool("enroll") && (QStringList() << "gal" << "mem" << "template" << "t").contains(file.suffix())) {
             // Retrieve it
             gallery.reset(Gallery::make(file));
             galleryFiles = gallery->files();
@@ -253,7 +277,7 @@ struct AlgorithmCore
             if (!galleryFiles.isEmpty()) return;
 
             // Enroll it
-            enroll(file);
+            enroll(file, getMemoryGallery(file));
             gallery.reset(Gallery::make(getMemoryGallery(file)));
             galleryFiles = gallery->files();
         }
@@ -279,6 +303,9 @@ struct AlgorithmCore
 
         TemplateList queries = q->read();
         TemplateList targets = t->read();
+
+        output.set("targetGallery", targetGallery.name );
+        output.set("queryGallery", queryGallery.name );
 
         // Use a single file for one of the dimensions so that the output makes the right size file
         FileList dummyTarget;
@@ -400,6 +427,9 @@ struct AlgorithmCore
         rowSize = temp->totalSize();
         delete temp;
 
+        if (selfCompare)
+            rowSize = queryMetadata.size();
+
         // Is the column gallery already enrolled? We keep the enrolled column gallery in memory, and in multi-process
         // mode, every worker process retains a copy of this gallery in memory. When not in multi-process mode, we can
         // simple make sure the enrolled data is stored in a memGallery, but in multi-process mode we save the enrolled
@@ -413,7 +443,7 @@ struct AlgorithmCore
             colEnrolledGallery = colGallery.baseName() + colGallery.hash() + '.' + targetExtension;
 
             // Check if we have to do real enrollment, and not just convert the gallery's type.
-            if (!(QStringList() << "gal" << "template" << "mem").contains(colGallery.suffix()))
+            if (!(QStringList() << "gal" << "template" << "mem" << "t").contains(colGallery.suffix()))
                 enroll(colGallery, colEnrolledGallery);
 
             // If the gallery does have enrolled templates, but is not the right type, we do a simple
@@ -435,7 +465,7 @@ struct AlgorithmCore
         // which compares incoming templates against a gallery, we will handle enrollment of the row set by simply
         // building a transform that does enrollment (using the current algorithm), then does the comparison in one
         // step. This way, we don't have to retain the complete enrolled row gallery in memory, or on disk.
-        else if (!(QStringList() << "gal" << "mem" << "template").contains(rowGallery.suffix()))
+        else if (!(QStringList() << "gal" << "mem" << "template" << "t").contains(rowGallery.suffix()))
             needEnrollRows = true;
 
         // At this point, we have decided how we will structure the comparison (either in transpose mode, or not), 
@@ -513,15 +543,20 @@ private:
     // Check if description is either an abbreviation or a model file, if so load it
     bool loadOrExpand(const QString &description)
     {
-        // Check if a trained binary already exists for this algorithm
-        QString file = Globals->sdkPath + "/share/openbr/models/algorithms/" + description;
-        QFileInfo eFile(file);
-        file = eFile.exists() && !eFile.isDir() ? file : description;
+        // Check if a trained binary already exists for this algorithm,
+        // giving priority to local files before defaulting to openbr/share/models/algorithms.
+        QFileInfo fileInfo(description);
+        if (!fileInfo.exists() || fileInfo.isDir())
+            fileInfo = QFileInfo(Globals->sdkPath + "/share/openbr/models/algorithms/" + description);
 
-        QFileInfo dFile(file);
-        if (dFile.exists() && !dFile.isDir()) {
-            qDebug("Loading %s", qPrintable(dFile.fileName()));
-            load(file);
+        // Also check up one directory to handle the scenario where OpenBR is a submodule of another project
+        if (!fileInfo.exists() || fileInfo.isDir())
+            fileInfo = QFileInfo(Globals->sdkPath + "/../share/openbr/models/algorithms/" + description);
+
+        if (fileInfo.exists() && !fileInfo.isDir()) {
+            const QString filePath = fileInfo.canonicalFilePath();
+            qDebug("Loading %s", qPrintable(filePath));
+            load(filePath);
             return true;
         }
 
@@ -748,5 +783,16 @@ QSharedPointer<br::Distance> br::Distance::fromAlgorithm(const QString &algorith
     return AlgorithmManager::getAlgorithm(algorithm)->distance;
 }
 
+class pathInitializer : public Initializer
+{
+    Q_OBJECT
+
+    void initialize() const
+    {
+        Globals->modelSearch.append(Globals->sdkPath + "/share/openbr/models/transforms");
+        Globals->modelSearch.append(Globals->sdkPath + "/../share/openbr/models/transforms");
+    }
+};
+BR_REGISTER(Initializer, pathInitializer)
 
 #include "core.moc"

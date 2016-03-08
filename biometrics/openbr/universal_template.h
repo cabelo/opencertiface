@@ -35,19 +35,20 @@ extern "C" {
  */
 struct br_universal_template
 {
-    unsigned char imageID[16];    /*!< MD5 hash of the undecoded origin file. */
-    unsigned char templateID[16]; /*!< MD5 hash of _data_ after _urlSize_. */
-    int32_t  algorithmID;         /*!< interpretation of _data_ after _urlSize_. */
-    uint32_t x;      /*!< region of interest horizontal offset (pixels). */
-    uint32_t y;      /*!< region of interest vertical offset (pixels). */
-    uint32_t width;  /*!< region of interest horizontal size (pixels). */
-    uint32_t height; /*!< region of interest vertical size (pixels). */
-    uint32_t urlSize; /*!< length of null-terminated URL at the beginning of _data_,
-                           including the null-terminator character. */
-    uint32_t size; /*!< length of _data_. */
-    unsigned char data[]; /*!< _size_-byte buffer.
-                               The first _urlSize_ bytes represent the URL.
-                               The remaining (_size_ - _urlSize_) bytes represent the template data. */
+    int32_t algorithmID; /*!< Interpretation of _data_ after _mdSize_. */
+    uint32_t frame; /*!< Video frame number, or <tt>numeric_limits<uint32_t>::max()</tt> for still images. */
+    int32_t x; /*!< Region of interest horizontal offset (pixels). */
+    int32_t y; /*!< Region of interest vertical offset (pixels). */
+    uint32_t width;  /*!< Region of interest horizontal size (pixels). */
+    uint32_t height; /*!< Region of interest vertical size (pixels). */
+    float confidence; /*!< Region of interest confidence. */
+    uint32_t personID; /*!< Unique identifier or <tt>numeric_limits<uint32_t>::max()</tt> if unknown. */
+    uint32_t mdSize; /*!< Length of a null-terminated metadata string at the beginning of _data_,
+                          including the null-terminator character itself. */
+    uint32_t fvSize; /*!< Length of the feature vector after the metadata in _data_. */
+    unsigned char data[]; /*!< (_mdSize_ + _fvSize_)-byte buffer.
+                               The first _mdSize_ bytes represent the metadata.
+                               The remaining _fvSize_ bytes represent the feature vector. */
 };
 
 typedef struct br_universal_template *br_utemplate;
@@ -57,7 +58,7 @@ typedef const struct br_universal_template *br_const_utemplate;
  * \brief br_universal_template constructor.
  * \see br_free_utemplate
  */
-BR_EXPORT br_utemplate br_new_utemplate(const int8_t *imageID, int32_t algorithmID, size_t x, size_t y, size_t width, size_t height, const char *url, const char *data, uint32_t dataSize);
+BR_EXPORT br_utemplate br_new_utemplate(int32_t algorithmID, uint32_t frame, int32_t x, int32_t y, uint32_t width, uint32_t height, float confidence, uint32_t personID, const char *metadata, const char *featureVector, uint32_t fvSize);
 
 /*!
  * \brief br_universal_template destructor.
@@ -86,9 +87,10 @@ BR_EXPORT void br_iterate_utemplates(br_const_utemplate begin, br_const_utemplat
 
 /*!
  * \brief Iterate over br_universal_template in a file.
+ * \return The number of templates iterated
  * \see br_iterate_utemplates
  */
-BR_EXPORT void br_iterate_utemplates_file(FILE *file, br_utemplate_callback callback, br_callback_context context, bool parallel);
+BR_EXPORT int br_iterate_utemplates_file(FILE *file, br_utemplate_callback callback, br_callback_context context, bool parallel);
 
 /*!
  * \brief Write a message annotated with the current time to stderr.

@@ -17,7 +17,9 @@
 #ifndef QTUTILS_QTUTILS_H
 #define QTUTILS_QTUTILS_H
 
+#include <QBuffer>
 #include <QByteArray>
+#include <QDataStream>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -33,8 +35,6 @@
 namespace QtUtils
 {
     /**** File Utilities ****/
-    QStringList getFiles(QDir dir, bool recursive);
-    QStringList getFiles(const QString &regexp);
     QStringList readLines(const QString &file);
     void readFile(const QString &file, QStringList &lines);
     void readFile(const QString &file, QByteArray &data, bool uncompress = false);
@@ -50,6 +50,7 @@ namespace QtUtils
     void emptyDir(QDir &dir);
     void deleteDir(QDir &dir);
     QString find(const QString &file, const QString &alt);
+    QString getAbsolutePath(const QString &filename);
 
     /**** String Utilities ****/
     bool toBool(const QString &string);
@@ -75,6 +76,7 @@ namespace QtUtils
     /**** Variant Utilities ****/
     QString toString(const QVariant &variant);
     QString toString(const QVariantList &variantList);
+    QString toString(const QVariantMap &QVariantMap);
 
     template <typename T>
     QVariantList toVariantList(const QList<T> &list)
@@ -88,6 +90,41 @@ namespace QtUtils
 
     /**** Point Utilities ****/
     float euclideanLength(const QPointF &point);
+
+    /**** Rect Utilities ****/
+    float overlap(const QRectF &r, const QRectF &s);
+
+    
+    class BlockCompression : public QIODevice
+    {
+    public:
+        BlockCompression(QIODevice *_basis);
+        BlockCompression();
+        int blockSize;
+        QIODevice *basis;
+
+        bool open(QIODevice::OpenMode mode);
+
+        void close();
+
+        void setBasis(QIODevice *_basis);
+
+        QDataStream blockReader;
+        QByteArray decompressedBlock;
+        QBuffer decompressedBlockReader;
+
+        // read from current decompressed block, if out of space, read and decompress another
+        // block from basis
+        qint64 readData(char *data, qint64 remaining);
+
+        bool isSequential() const;
+
+        // write to a QByteArray, when max block sized is reached, compress and write
+        // it to basis
+        QBuffer precompressedBlockWriter;
+        QDataStream blockWriter;
+        qint64 writeData(const char *data, qint64 remaining);
+    };
 }
 
 #endif // QTUTILS_QTUTILS_H

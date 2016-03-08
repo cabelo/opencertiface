@@ -1,4 +1,4 @@
-add_library(pittpatt SHARED ../janus.cpp pittpatt.c pittpatt_io.c)
+add_library(pittpatt SHARED pittpatt.cpp pittpatt_io.cpp)
 set_target_properties(pittpatt PROPERTIES
                       DEFINE_SYMBOL JANUS_LIBRARY
                       VERSION ${JANUS_VERSION_MAJOR}.${JANUS_VERSION_MINOR}.${JANUS_VERSION_PATCH}

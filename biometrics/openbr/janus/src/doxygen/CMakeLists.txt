@@ -1,7 +1,7 @@
 option(JANUS_BUILD_DOCS "Build Janus HTML Doxygen documentation" ON)
 if(${JANUS_BUILD_DOCS})
   find_package(Doxygen)
-  set(DOXYGEN_EXPECTED_VERSION "1.8.7")
+  set(DOXYGEN_EXPECTED_VERSION "1.8.9.1")
   if(${DOXYGEN_FOUND})
     if(NOT ${DOXYGEN_VERSION} STREQUAL ${DOXYGEN_EXPECTED_VERSION})
       message(WARNING "Found Doxygen version ${DOXYGEN_VERSION}, expected version ${DOXYGEN_EXPECTED_VERSION}. Will attempt to build documentation regardless.")

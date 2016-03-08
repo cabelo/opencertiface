@@ -23,6 +23,8 @@
 #include "opencvutils.h"
 #include "qtutils.h"
 
+#include <QTemporaryFile>
+
 using namespace cv;
 using namespace std;
 
@@ -119,6 +121,17 @@ Mat OpenCVUtils::toMat(const QList<float> &src, int rows)
     for (int i=0; i<src.size(); i++)
         dst.at<float>(i/columns,i%columns) = src[i];
     return dst;
+}
+
+Mat OpenCVUtils::pointsToMatrix(const QList<QPointF> &qPoints)
+{
+    QList<float> points;
+    foreach(const QPointF &point, qPoints) {
+        points.append(point.x());
+        points.append(point.y());
+    }
+
+    return toMat(points);
 }
 
 Mat OpenCVUtils::toMat(const QList<QList<float> > &srcs, int rows)
@@ -250,6 +263,75 @@ QStringList OpenCVUtils::matrixToStringList(const Mat &m)
     return results;
 }
 
+void OpenCVUtils::storeModel(const CvStatModel &model, QDataStream &stream)
+{
+    // Create local file
+    QTemporaryFile tempFile;
+    tempFile.open();
+    tempFile.close();
+
+    // Save MLP to local file
+    model.save(qPrintable(tempFile.fileName()));
+
+    // Copy local file contents to stream
+    tempFile.open();
+    QByteArray data = tempFile.readAll();
+    tempFile.close();
+    stream << data;
+}
+
+void OpenCVUtils::storeModel(const cv::Algorithm &model, QDataStream &stream)
+{
+    // Create local file
+    QTemporaryFile tempFile;
+    tempFile.open();
+    tempFile.close();
+
+    // Save MLP to local file
+    cv::FileStorage fs(tempFile.fileName().toStdString(), cv::FileStorage::WRITE);
+    model.write(fs);
+    fs.release();
+
+    // Copy local file contents to stream
+    tempFile.open();
+    QByteArray data = tempFile.readAll();
+    tempFile.close();
+    stream << data;
+}
+
+void OpenCVUtils::loadModel(CvStatModel &model, QDataStream &stream)
+{
+    // Copy local file contents from stream
+    QByteArray data;
+    stream >> data;
+
+    // Create local file
+    QTemporaryFile tempFile(QDir::tempPath()+"/model");
+    tempFile.open();
+    tempFile.write(data);
+    tempFile.close();
+
+    // Load MLP from local file
+    model.load(qPrintable(tempFile.fileName()));
+}
+
+void OpenCVUtils::loadModel(cv::Algorithm &model, QDataStream &stream)
+{
+    // Copy local file contents from stream
+    QByteArray data;
+    stream >> data;
+
+    // Create local file
+    QTemporaryFile tempFile(QDir::tempPath()+"/model");
+    tempFile.open();
+    tempFile.write(data);
+    tempFile.close();
+
+    // Load MLP from local file
+    cv::FileStorage fs(tempFile.fileName().toStdString(), cv::FileStorage::READ);
+    model.read(fs[""]);
+}
+
 Point2f OpenCVUtils::toPoint(const QPointF &qPoint)
 {
     return Point2f(qPoint.x(), qPoint.y());
@@ -334,6 +416,270 @@ bool OpenCVUtils::overlaps(const QList<Rect> &posRects, const Rect &negRect, dou
             return true;
     }
     return false;
+}
+
+// class for grouping object candidates, detected by Cascade Classifier, HOG etc.
+// instance of the class is to be passed to cv::partition (see cxoperations.hpp)
+class SimilarRects
+{
+public:
+    SimilarRects(double _eps) : eps(_eps) {}
+    inline bool operator()(const Rect& r1, const Rect& r2) const
+    {
+        double delta = eps*(std::min(r1.width, r2.width) + std::min(r1.height, r2.height))*0.5;
+        return std::abs(r1.x - r2.x) <= delta &&
+            std::abs(r1.y - r2.y) <= delta &&
+            std::abs(r1.x + r1.width - r2.x - r2.width) <= delta &&
+            std::abs(r1.y + r1.height - r2.y - r2.height) <= delta;
+    }
+    double eps;
+};
+
+// TODO: Make sure case where no confidences are inputted works.
+void OpenCVUtils::group(QList<Rect> &rects, QList<float> &confidences, float confidenceThreshold, int minNeighbors, float epsilon, bool useMax)
+{
+    if (rects.isEmpty())
+        return;
+
+    vector<int> labels;
+    int nClasses = cv::partition(rects.toVector().toStdVector(), labels, SimilarRects(epsilon));
+
+    // Rect for each class (class meaning identity assigned by partition)
+    vector<Rect> rrects(nClasses);
+
+    // Total number of rects in each class
+    vector<int> neighbors(nClasses, -1);
+    vector<float> classConfidence(nClasses, useMax ? -std::numeric_limits<float>::max() : 0);
+
+    for (size_t i = 0; i < labels.size(); i++)
+    {
+        int cls = labels[i];
+        rrects[cls].x += rects[i].x;
+        rrects[cls].y += rects[i].y;
+        rrects[cls].width += rects[i].width;
+        rrects[cls].height += rects[i].height;
+        neighbors[cls]++;
+        classConfidence[cls] = useMax ? std::max(classConfidence[cls], confidences[i]) : classConfidence[cls]+confidences[i];
+    }
+
+    // Find average rectangle for all classes
+    for (int i = 0; i < nClasses; i++)
+    {
+        if (neighbors[i] > 0) {
+            Rect r = rrects[i];
+            float s = 1.f/(neighbors[i]+1);
+            rrects[i] = Rect(saturate_cast<int>(r.x*s),
+                 saturate_cast<int>(r.y*s),
+                 saturate_cast<int>(r.width*s),
+                 saturate_cast<int>(r.height*s));
+        }
+    }
+
+    rects.clear();
+    confidences.clear();
+
+    // Aggregate by comparing average rectangles against other average rectangles
+    for (int i = 0; i < nClasses; i++)
+    {
+        // Average rectangle
+        const Rect r1 = rrects[i];
+
+        // Used to eliminate rectangles with few neighbors in the case of no weights
+        const float w1 = classConfidence[i];
+
+        // Eliminate rectangle if it doesn't meet confidence criteria
+        if (w1 < confidenceThreshold)
+            continue;
+
+        const int n1 = neighbors[i];
+        if (n1 < minNeighbors)
+            continue;
+
+        // filter out small face rectangles inside large rectangles
+        int j;
+        for (j = 0; j < nClasses; j++)
+        {
+            const int n2 = neighbors[j];
+            if (j == i || n2 < minNeighbors)
+                continue;
+
+            const Rect r2 = rrects[j];
+
+            const int dx = saturate_cast<int>(r2.width * epsilon);
+            const int dy = saturate_cast<int>(r2.height * epsilon);
+
+            const float w2 = classConfidence[j];
+
+            if(r1.x >= r2.x - dx &&
+               r1.y >= r2.y - dy &&
+               r1.x + r1.width <= r2.x + r2.width + dx &&
+               r1.y + r1.height <= r2.y + r2.height + dy &&
+               (w2 > w1) &&
+               (n2 > n1))
+               break;
+        }
+
+        if( j == nClasses )
+        {
+            rects.append(r1);
+            confidences.append(w1);
+        }
+    }
+}
+
+void OpenCVUtils::pad(const br::Template &src, br::Template &dst, bool padMat, const QList<int> &padding, bool padPoints, bool padRects, int border, int value)
+{
+    // Padding is expected to be top, bottom, left, right
+    if (padMat)
+        copyMakeBorder(src, dst, padding[0], padding[1], padding[2], padding[3], border, Scalar(value));
+    else
+        dst = src;
+
+    if (padPoints) {
+        QList<QPointF> points = src.file.points();
+        QList<QPointF> paddedPoints;
+        for (int i=0; i<points.size(); i++)
+            paddedPoints.append(points[i] += QPointF(padding[2],padding[0]));
+        dst.file.setPoints(paddedPoints);
+    }
+
+    if (padRects) {
+        QList<QRectF> rects = src.file.rects();
+        QList<QRectF> paddedRects;
+        for (int i=0; i<rects.size(); i++)
+            paddedRects.append(rects[i].translated(QPointF(padding[2],padding[0])));
+        dst.file.setRects(paddedRects);
+    }
+
+
+}
+
+void OpenCVUtils::pad(const br::TemplateList &src, br::TemplateList &dst, bool padMat, const QList<int> &padding, bool padPoints, bool padRects, int border, int value)
+{
+    for (int i=0; i<src.size(); i++) {
+        br::Template t;
+        pad(src[i], t, padMat, padding, padPoints, padRects, border, value);
+        dst.append(t);
+    }
+}
+
+void OpenCVUtils::rotate(const br::Template &src, br::Template &dst, float degrees, bool rotateMat, bool rotatePoints, bool rotateRects)
+{
+    Mat rotMatrix = getRotationMatrix2D(Point2f(src.m().rows/2,src.m().cols/2),degrees,1.0);
+    if (rotateMat) {
+        warpAffine(src,dst,rotMatrix,Size(src.m().cols,src.m().rows),INTER_LINEAR,BORDER_REFLECT_101);
+        dst.file = src.file;
+    } else
+        dst = src;
+
+    if (rotatePoints) {
+        QList<QPointF> points = src.file.points();
+        QList<QPointF> rotatedPoints;
+        for (int i=0; i<points.size(); i++) {
+            rotatedPoints.append(QPointF(points.at(i).x()*rotMatrix.at<double>(0,0)+
+                                         points.at(i).y()*rotMatrix.at<double>(0,1)+
+                                         rotMatrix.at<double>(0,2),
+                                         points.at(i).x()*rotMatrix.at<double>(1,0)+
+                                         points.at(i).y()*rotMatrix.at<double>(1,1)+
+                                         rotMatrix.at<double>(1,2)));
+        }
+
+        dst.file.setPoints(rotatedPoints);
+    }
+
+    if (rotateRects) {
+        QList<QRectF> rects = src.file.rects();
+        QList<QRectF> rotatedRects;
+        for (int i=0; i<rects.size(); i++) {
+            QList<QPointF> corners;
+            corners << rects[i].topLeft() << rects[i].topRight() << rects[i].bottomLeft() << rects[i].bottomRight();
+
+            QList<QPointF> rotatedCorners;
+            foreach (const QPointF &corner, corners)
+                rotatedCorners.append(QPointF(corner.x() * rotMatrix.at<double>(0,0) +
+                                              corner.y() * rotMatrix.at<double>(0,1) +
+                                                           rotMatrix.at<double>(0,2),
+                                              corner.x() * rotMatrix.at<double>(1,0) +
+                                              corner.y() * rotMatrix.at<double>(1,1) +
+                                                           rotMatrix.at<double>(1,2)));
+
+            float top = min(rotatedCorners[0].y(), rotatedCorners[1].y());
+            float left = min(rotatedCorners[0].x(), rotatedCorners[2].x());
+            float bottom = max(rotatedCorners[2].y(), rotatedCorners[3].y());
+            float right = max(rotatedCorners[1].x(), rotatedCorners[3].x());
+
+            rotatedRects.append(QRectF(QPointF(left,top),QPointF(right,bottom)));
+        }
+
+        dst.file.setRects(rotatedRects);
+    }
+}
+
+void OpenCVUtils::rotate(const br::TemplateList &src, br::TemplateList &dst, float degrees, bool rotateMat, bool rotatePoints, bool rotateRects)
+{
+    for (int i=0; i<src.size(); i++) {
+        br::Template t;
+        rotate(src[i], t, degrees, rotateMat, rotatePoints, rotateRects);
+        dst.append(t);
+    }
+}
+
+void OpenCVUtils::flip(const br::Template &src, br::Template &dst, int axis, bool flipMat, bool flipPoints, bool flipRects)
+{
+    if (flipMat) {
+        cv::flip(src, dst, axis);
+        dst.file = src.file;
+    } else
+        dst = src;
+
+    if (flipPoints) {
+        QList<QPointF> flippedPoints;
+        foreach(const QPointF &point, src.file.points()) {
+            // Check for missing data using the QPointF(-1,-1) convention
+            if (point != QPointF(-1,-1)) {
+                if (axis == 0) {
+                    flippedPoints.append(QPointF(point.x(),src.m().rows-point.y()));
+                } else if (axis == 1) {
+                    flippedPoints.append(QPointF(src.m().cols-point.x(),point.y()));
+                } else {
+                    flippedPoints.append(QPointF(src.m().cols-point.x(),src.m().rows-point.y()));
+                }
+            }
+        }
+        dst.file.setPoints(flippedPoints);
+    }
+
+    if (flipRects) {
+        QList<QRectF> flippedRects;
+        foreach(const QRectF &rect, src.file.rects()) {
+            if (axis == 0) {
+                flippedRects.append(QRectF(rect.x(),
+                                           src.m().rows-rect.bottom(),
+                                           rect.width(),
+                                           rect.height()));
+            } else if (axis == 1) {
+                flippedRects.append(QRectF(src.m().cols-rect.right(),
+                                           rect.y(),
+                                           rect.width(),
+                                           rect.height()));
+            } else {
+                flippedRects.append(QRectF(src.m().cols-rect.right(),
+                                           src.m().rows-rect.bottom(),
+                                           rect.width(),
+                                           rect.height()));
+            }
+        }
+        dst.file.setRects(flippedRects);
+    }
+}
+
+void OpenCVUtils::flip(const br::TemplateList &src, br::TemplateList &dst, int axis, bool flipMat, bool flipPoints, bool flipRects)
+{
+    for (int i=0; i<src.size(); i++) {
+        br::Template t;
+        flip(src[i], t, axis, flipMat, flipPoints, flipRects);
+        dst.append(t);
+    }
 }
 
 QDataStream &operator<<(QDataStream &stream, const Mat &m)

@@ -69,6 +69,7 @@ public:
 
         bool daemon = false;
         const char *daemon_pipe = NULL;
+        bool isInt = false;
         while (daemon || (argc > 0)) {
             const char *fun;
             int parc;
@@ -78,7 +79,12 @@ public:
 
             fun = argv[0];
             if (fun[0] == '-') fun++;
-            parc = 0; while ((parc+1 < argc) && (argv[parc+1][0] != '-')) parc++;
+            parc = 0;
+            QString(argv[parc+1]).toInt(&isInt);
+            while ((parc+1 < argc) && ((argv[parc+1][0] != '-') || isInt)) {
+                parc++;
+                QString(argv[parc+1]).toInt(&isInt);
+            }
             parv = (const char **)&argv[1];
             argc = argc - (parc+1);
             argv = &argv[parc+1];
@@ -94,9 +100,6 @@ public:
             } else if (!strcmp(fun, "compare")) {
                 check((parc >= 2) && (parc <= 3), "Incorrect parameter count for 'compare'.");
                 br_compare(parv[0], parv[1], parc == 3 ? parv[2] : "");
-            } else if (!strcmp(fun, "pairwiseCompare")) {
-                check((parc >= 2) && (parc <= 3), "Incorrect parameter count for 'pairwiseCompare'.");
-                br_pairwise_compare(parv[0], parv[1], parc == 3 ? parv[2] : "");
             } else if (!strcmp(fun, "eval")) {
                 check((parc >= 1) && (parc <= 4), "Incorrect parameter count for 'eval'.");
                 if (parc == 1) {
@@ -120,9 +123,6 @@ public:
                 } else {
                     br_eval(parv[0], parv[1], parv[2], atoi(parv[3]));
                 }
-            } else if (!strcmp(fun, "inplaceEval")) {
-                check((parc >= 3) && (parc <= 4), "Incorrect parameter count for 'inplaceEval'.");
-                br_inplace_eval(parv[0], parv[1], parv[2], parc == 4 ? parv[3] : "");
             } else if (!strcmp(fun, "plot")) {
                 check(parc >= 2, "Incorrect parameter count for 'plot'.");
                 br_plot(parc-1, parv, parv[parc-1], true);
@@ -150,21 +150,33 @@ public:
             } else if (!strcmp(fun, "convert")) {
                 check(parc == 3, "Incorrect parameter count for 'convert'.");
                 br_convert(parv[0], parv[1], parv[2]);
+            } else if (!strcmp(fun, "assertEval")) {
+                check(parc == 3, "Incorrect parameter count for 'assertEval'.");
+                br_assert_eval(parv[0], parv[1], atof(parv[2]));
             } else if (!strcmp(fun, "evalClassification")) {
                 check(parc >= 2 && parc <= 4, "Incorrect parameter count for 'evalClassification'.");
                 br_eval_classification(parv[0], parv[1], parc >= 3 ? parv[2] : "", parc >= 4 ? parv[3] : "");
             } else if (!strcmp(fun, "evalClustering")) {
-                check((parc >= 2) && (parc <= 3), "Incorrect parameter count for 'evalClustering'.");
-                br_eval_clustering(parv[0], parv[1], parc == 3 ? parv[2] : "");
+                check((parc >= 2) && (parc <= 5), "Incorrect parameter count for 'evalClustering'.");
+                br_eval_clustering(parv[0], parv[1], parc > 2 ? parv[2] : "", parc > 3 ? atoi(parv[3]) : 1, parc > 4 ? parv[4] : "");
             } else if (!strcmp(fun, "evalDetection")) {
-                check((parc >= 2) && (parc <= 5), "Incorrect parameter count for 'evalDetection'.");
-                br_eval_detection(parv[0], parv[1], parc >= 3 ? parv[2] : "", parc >= 4 ? atoi(parv[3]) : 0, parc == 5 ? atoi(parv[4]) : 0);
+                check((parc >= 2) && (parc <= 6), "Incorrect parameter count for 'evalDetection'.");
+                br_eval_detection(parv[0], parv[1], parc >= 3 ? parv[2] : "", parc >= 4 ? atoi(parv[3]) : 0, parc >= 5 ? atoi(parv[4]) : 0, parc == 6 ? atoi(parv[5]) : 0);
             } else if (!strcmp(fun, "evalLandmarking")) {
-                check((parc >= 2) && (parc <= 5), "Incorrect parameter count for 'evalLandmarking'.");
-                br_eval_landmarking(parv[0], parv[1], parc >= 3 ? parv[2] : "", parc >= 4 ? atoi(parv[3]) : 0, parc >= 5 ? atoi(parv[4]) : 1);
+                check((parc >= 2) && (parc <= 7), "Incorrect parameter count for 'evalLandmarking'.");
+                br_eval_landmarking(parv[0], parv[1], parc >= 3 ? parv[2] : "", parc >= 4 ? atoi(parv[3]) : 0, parc >= 5 ? atoi(parv[4]) : 1,  parc >= 6 ? atoi(parv[5]) : 0, parc >= 7 ? atoi(parv[6]) : 5);
             } else if (!strcmp(fun, "evalRegression")) {
                 check(parc >= 2 && parc <= 4, "Incorrect parameter count for 'evalRegression'.");
                 br_eval_regression(parv[0], parv[1], parc >= 3 ? parv[2] : "", parc >= 4 ? parv[3] : "");
+            } else if (!strcmp(fun, "evalKNN")) {
+                check(parc >= 2 && parc <= 3, "Incorrect parameter count for 'evalKNN'.");
+                br_eval_knn(parv[0], parv[1], parc > 2 ? parv[2] : "");
+            } else if (!strcmp(fun, "pairwiseCompare")) {
+                check((parc >= 2) && (parc <= 3), "Incorrect parameter count for 'pairwiseCompare'.");
+                br_pairwise_compare(parv[0], parv[1], parc == 3 ? parv[2] : "");
+            } else if (!strcmp(fun, "inplaceEval")) {
+                check((parc >= 3) && (parc <= 4), "Incorrect parameter count for 'inplaceEval'.");
+                br_inplace_eval(parv[0], parv[1], parv[2], parc == 4 ? parv[3] : "");
             } else if (!strcmp(fun, "plotDetection")) {
                 check(parc >= 2, "Incorrect parameter count for 'plotDetection'.");
                 br_plot_detection(parc-1, parv, parv[parc-1], true);
@@ -174,12 +186,18 @@ public:
             } else if (!strcmp(fun, "plotMetadata")) {
                 check(parc >= 2, "Incorrect parameter count for 'plotMetadata'.");
                 br_plot_metadata(parc-1, parv, parv[parc-1], true);
+            } else if (!strcmp(fun, "plotKNN")) {
+                check(parc >=2, "Incorrect parameter count for 'plotKNN'.");
+                br_plot_knn(parc-1, parv, parv[parc-1], true);
             } else if (!strcmp(fun, "project")) {
                 check(parc == 2, "Insufficient parameter count for 'project'.");
                 br_project(parv[0], parv[1]);
             } else if (!strcmp(fun, "deduplicate")) {
                 check(parc == 3, "Incorrect parameter count for 'deduplicate'.");
                 br_deduplicate(parv[0], parv[1], parv[2]);
+            } else if (!strcmp(fun, "likely")) {
+                check(parc == 3, "Incorrect parameter count for 'likely'.");
+                br_likely(parv[0], parv[1], parv[2]);
             }
 
             // Miscellaneous
@@ -219,6 +237,9 @@ public:
             } else if (!strcmp(fun, "setHeader")) {
                 check(parc == 3, "Incorrect parameter count for 'setHeader'.");
                 br_set_header(parv[0], parv[1], parv[2]);
+            } else if (!strcmp(fun, "srand")) {
+                check(parc == 1, "Incorrect parameter count for 'srand'.");
+                srand(atoi(parv[1]));
             } else if (!strcmp(fun, "br")) {
                 printf("That's me!\n");
             } else if (parc <= 1) {
@@ -249,24 +270,32 @@ private:
                "-enroll <input_gallery> ... <input_gallery> {output_gallery}\n"
                "-compare <target_gallery> <query_gallery> [{output}]\n"
                "-eval <simmat> [<mask>] [{csv}] [{matches}]\n"
-               "-plot <file> ... <file> {destination}\n"
+               "-plot <csv> ... <csv> {destination}\n"
                "\n"
                "==== Other Commands ====\n"
                "-fuse <simmat> ... <simmat> (None|MinMax|ZScore|WScore) (Min|Max|Sum[W1:W2:...:Wn]|Replace|Difference|None) {simmat}\n"
                "-cluster <simmat> ... <simmat> <aggressiveness> {csv}\n"
                "-makeMask <target_gallery> <query_gallery> {mask}\n"
+               "-makePairwiseMask <target_gallery> <query_gallery> {mask}\n"
                "-combineMasks <mask> ... <mask> {mask} (And|Or)\n"
                "-cat <gallery> ... <gallery> {gallery}\n"
                "-convert (Format|Gallery|Output) <input_file> {output_file}\n"
                "-evalClassification <predicted_gallery> <truth_gallery> <predicted property name> <ground truth proprty name>\n"
-               "-evalClustering <clusters> <gallery>\n"
-               "-evalDetection <predicted_gallery> <truth_gallery> [{csv}] [{normalize}] [{minSize}]\n"
-               "-evalLandmarking <predicted_gallery> <truth_gallery> [{csv} [<normalization_index_a> <normalization_index_b>]]\n"
+               "-evalClustering <clusters> <truth_gallery> [truth_property [cluster_csv [cluster_property]]]\n"
+               "-evalDetection <predicted_gallery> <truth_gallery> [{csv}] [{normalize}] [{minSize}] [{maxSize}]\n"
+               "-evalLandmarking <predicted_gallery> <truth_gallery> [{csv} [<normalization_index_a> <normalization_index_b>] [sample_index] [total_examples]]\n"
                "-evalRegression <predicted_gallery> <truth_gallery> <predicted property name> <ground truth property name>\n"
+               "-evalKNN <knn_graph> <knn_truth> [{csv}]\n"
+               "-pairwiseCompare <target_gallery> <query_gallery> [{output}]\n"
+               "-inplaceEval <simmat> <target> <query> [{csv}]\n"
+               "-assertEval <simmat> <mask> <accuracy>\n"
                "-plotDetection <file> ... <file> {destination}\n"
                "-plotLandmarking <file> ... <file> {destination}\n"
                "-plotMetadata <file> ... <file> <columns>\n"
+               "-plotKNN <file> ... <file> {destination}\n"
                "-project <input_gallery> {output_gallery}\n"
+               "-deduplicate <input_gallery> <output_gallery> <threshold>\n"
+               "-likely <input_type> <output_type> <output_likely_source>\n"
                "-getHeader <matrix>\n"
                "-setHeader {<matrix>} <target_gallery> <query_gallery>\n"
                "-<key> <value>\n"
@@ -278,7 +307,9 @@ private:
                "-about\n"
                "-version\n"
                "-daemon\n"
-               "-exit\n");
+               "-slave\n"
+               "-exit\n"
+               "-srand <int>\n");
     }
 };
 

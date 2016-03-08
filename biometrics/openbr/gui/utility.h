@@ -1,7 +1,10 @@
-#ifndef BR_UTILITY_H
-#define BR_UTILITY_H
+#ifndef BR_GUI_UTILITY_H
+#define BR_GUI_UTILITY_H
 
 #include <QImage>
+#include <QStringList>
+#include <QDir>
+
 #include <opencv2/core/core.hpp>
 #include <openbr/openbr_export.h>
 
@@ -12,4 +15,4 @@ BR_EXPORT QImage toQImage(const cv::Mat &mat);
 
 } // namespace br
 
-#endif // BR_UTILITY_H
+#endif // BR_GUI_UTILITY_H

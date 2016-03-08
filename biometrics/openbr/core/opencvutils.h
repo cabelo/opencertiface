@@ -22,7 +22,9 @@
 #include <QString>
 #include <QStringList>
 #include <opencv2/core/core.hpp>
+#include <opencv2/ml/ml.hpp>
 #include <assert.h>
+#include <openbr/openbr_plugin.h>
 
 namespace OpenCVUtils
 {
@@ -48,6 +50,12 @@ namespace OpenCVUtils
     QString elemToString(const cv::Mat &m, int r, int c);
     QString matrixToString(const cv::Mat &m);
     QStringList matrixToStringList(const cv::Mat &m);
+
+    // Model storage
+    void storeModel(const CvStatModel &model, QDataStream &stream);
+    void storeModel(const cv::Algorithm &model, QDataStream &stream);
+    void loadModel(CvStatModel &model, QDataStream &stream);
+    void loadModel(cv::Algorithm &model, QDataStream &stream);
 
     template <typename T>
     T getElement(const cv::Mat &m, int r, int c)
@@ -84,6 +92,7 @@ namespace OpenCVUtils
     QPointF fromPoint(const cv::Point2f &cvPoint);
     QList<cv::Point2f> toPoints(const QList<QPointF> &qPoints);
     QList<QPointF> fromPoints(const QList<cv::Point2f> &cvPoints);
+    cv::Mat pointsToMatrix(const QList<QPointF> &qPoints);
     cv::Rect toRect(const QRectF &qRect);
     QRectF fromRect(const cv::Rect &cvRect);
     QList<cv::Rect> toRects(const QList<QRectF> &qRects);
@@ -91,6 +100,15 @@ namespace OpenCVUtils
     bool overlaps(const QList<cv::Rect> &posRects, const cv::Rect &negRect, double overlap);
     float overlap(const cv::Rect &rect1, const cv::Rect &rect2);
     float overlap(const QRectF &rect1, const QRectF &rect2);
+
+    // Misc
+    void group(QList<cv::Rect> &rects, QList<float> &confidences, float confidenceThreshold, int minNeighbors, float epsilon, bool useMax=false);
+    void pad(const br::Template &src, br::Template &dst, bool padMat, const QList<int> &padding, bool padPoints, bool padRects, int border=0, int value=0);
+    void pad(const br::TemplateList &src, br::TemplateList &dst, bool padMat, const QList<int> &padding, bool padPoints, bool padRects, int border=0, int value=0);
+    void rotate(const br::Template &src, br::Template &dst, float degrees, bool rotateMat=true, bool rotatePoints=true, bool rotateRects=true);
+    void rotate(const br::TemplateList &src, br::TemplateList &dst, float degrees, bool rotateMat=true, bool rotatePoint=true, bool rotateRects=true);
+    void flip(const br::Template &src, br::Template &dst, int axis, bool flipMat=true, bool flipPoints=true, bool flipRects=true);
+    void flip(const br::TemplateList &src, br::TemplateList &dst, int axis, bool flipMat=true, bool flipPoints=true, bool flipRects=true);
 
     int getFourcc();
 }

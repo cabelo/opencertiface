@@ -758,6 +758,7 @@ EYAW DegreesAsEyaw( // this determines what model is best for a given yaw
     int    nmods)   // in
 {
     (void) yaw;
+    (void) nmods;
 
     if (nmods == 1)
         return EYAW00;

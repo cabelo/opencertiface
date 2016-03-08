@@ -72,8 +72,8 @@ QList< QPair<T,int> > Sort(const QList<T> &vals, bool decending = false, int n =
 /*!
  * \brief Returns the minimum, maximum, minimum index, and maximum index of a vector of values.
  */
-template <typename T>
-void MinMax(const QList<T> &vals, T *min, T *max, int *min_index, int *max_index)
+template <template<class> class V, typename T>
+void MinMax(const V<T> &vals, T *min, T *max, int *min_index, int *max_index)
 {
     const int size = vals.size();
     assert(size > 0);
@@ -92,27 +92,38 @@ void MinMax(const QList<T> &vals, T *min, T *max, int *min_index, int *max_index
     }
 }
 
-template <typename T>
-void MinMax(const QList<T> &vals, T *min, T *max)
+template <template<class> class V, typename T>
+void MinMax(const V<T> &vals, T *min, T *max)
 {
     int min_index, max_index;
     MinMax(vals, min, max, &min_index, &max_index);
 }
 
-template <typename T>
-T Min(const QList<T> &vals)
+template <template<class> class V, typename T>
+T Min(const V<T> &vals)
 {
     T min, max;
     MinMax(vals, &min, &max);
     return min;
 }
 
-template <typename T>
-T Max(const QList<T> &vals)
+template <template<class> class V, typename T>
+T Max(const V<T> &vals)
 {
     T min, max;
     MinMax(vals, &min, &max);
     return max;
+}
+
+/*!
+ * \brief Returns the sum of a vector of values.
+ */
+template <template<class> class V, typename T>
+double Sum(const V<T> &vals)
+{
+    double sum = 0;
+    foreach (T val, vals) sum += val;
+    return sum;
 }
 
 /*!
@@ -122,9 +133,7 @@ template <template<class> class V, typename T>
 double Mean(const V<T> &vals)
 {
     if (vals.isEmpty()) return 0;
-    double sum = 0;
-    foreach (T val, vals) sum += val;
-    return sum / vals.size();
+    return Sum(vals) / vals.size();
 }
 
 /*!
@@ -211,13 +220,15 @@ double KernelDensityEstimation(const V<T> &vals, double x, double h)
     return y / (vals.size() * h);
 }
 
+// Return a random number, uniformly distributed over 0,1
+double randN();
+
 /*!
  * \brief Returns a vector of n integers sampled in the range <min, max].
  *
  * If unique then there will be no repeated integers.
  * \note Algorithm is inefficient for unique vectors where n ~= max-min.
  */
-void seedRNG();
 QList<int> RandSample(int n, int max, int min = 0, bool unique = false);
 QList<int> RandSample(int n, const QSet<int> &values, bool unique = false);
 
@@ -227,19 +238,14 @@ QList<int> RandSample(int n, const QSet<int> &values, bool unique = false);
 template <typename T>
 QList<int> RandSample(int n, const QList<T> &weights, bool unique = false)
 {
-    static bool seeded = false;
-    if (!seeded) {
-        srand(time(NULL));
-        seeded = true;
-    }
-
     QList<T> cdf = CumSum(weights);
     for (int i=0; i<cdf.size(); i++) // Normalize cdf
         cdf[i] = cdf[i] / cdf.last();
 
     QList<int> samples; samples.reserve(n);
     while (samples.size() < n) {
-        T r = (T)rand() / (T)RAND_MAX;
+        T r = randN();
+
         for (int j=0; j<weights.size(); j++) {
             if ((r >= cdf[j]) && (r <= cdf[j+1])) {
                 if (!unique || !samples.contains(j))

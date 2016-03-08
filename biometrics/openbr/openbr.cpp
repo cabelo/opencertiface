@@ -20,6 +20,7 @@
 #include "core/cluster.h"
 #include "core/eval.h"
 #include "core/fuse.h"
+#include "core/likely.h"
 #include "core/plot.h"
 #include "core/qtutils.h"
 #include "plugins/openbr_internal.h"
@@ -59,7 +60,7 @@ void br_cat(int num_input_galleries, const char *input_galleries[], const char *
 
 void br_cluster(int num_simmats, const char *simmats[], float aggressiveness, const char *csv)
 {
-    ClusterGallery(QtUtils::toStringList(num_simmats, simmats), aggressiveness, csv);
+    ClusterSimmat(QtUtils::toStringList(num_simmats, simmats), aggressiveness, csv);
 }
 
 void br_combine_masks(int num_input_masks, const char *input_masks[], const char *output_mask, const char *method)
@@ -109,6 +110,11 @@ float br_eval(const char *simmat, const char *mask, const char *csv, int matches
     return Evaluate(simmat, mask, csv, matches);
 }
 
+void br_assert_eval(const char *simmat, const char *mask, const float accuracy)
+{
+    assertEval(simmat, mask, accuracy);
+}
+
 float br_inplace_eval(const char *simmat, const char *target, const char *query, const char *csv)
 {
     return InplaceEval(simmat, target, query, csv);
@@ -119,24 +125,29 @@ void br_eval_classification(const char *predicted_gallery, const char *truth_gal
     EvalClassification(predicted_gallery, truth_gallery, predicted_property, truth_property);
 }
 
-void br_eval_clustering(const char *csv, const char *gallery, const char *truth_property)
+void br_eval_clustering(const char *clusters, const char *truth_gallery, const char *truth_property, bool cluster_csv, const char *cluster_property)
 {
-    EvalClustering(csv, gallery, truth_property);
+    EvalClustering(clusters, truth_gallery, truth_property, cluster_csv, cluster_property);
 }
 
-float br_eval_detection(const char *predicted_gallery, const char *truth_gallery, const char *csv, bool normalize, int minSize)
+float br_eval_detection(const char *predicted_gallery, const char *truth_gallery, const char *csv, bool normalize, int minSize, int maxSize)
 {
-    return EvalDetection(predicted_gallery, truth_gallery, csv, normalize, minSize);
+    return EvalDetection(predicted_gallery, truth_gallery, csv, normalize, minSize, maxSize);
 }
 
-float br_eval_landmarking(const char *predicted_gallery, const char *truth_gallery, const char *csv, int normalization_index_a, int normalization_index_b)
+float br_eval_landmarking(const char *predicted_gallery, const char *truth_gallery, const char *csv, int normalization_index_a, int normalization_index_b, int sample_index, int total_examples)
 {
-    return EvalLandmarking(predicted_gallery, truth_gallery, csv, normalization_index_a, normalization_index_b);
+    return EvalLandmarking(predicted_gallery, truth_gallery, csv, normalization_index_a, normalization_index_b, sample_index, total_examples);
 }
 
 void br_eval_regression(const char *predicted_gallery, const char *truth_gallery, const char *predicted_property, const char *truth_property)
 {
     EvalRegression(predicted_gallery, truth_gallery, predicted_property, truth_property);
+}
+
+void br_eval_knn(const char *knnGraph, const char *knnTruth, const char *csv)
+{
+    EvalKNN(knnGraph, knnTruth, csv);
 }
 
 void br_finalize()
@@ -153,6 +164,8 @@ void br_fuse(int num_input_simmats, const char *input_simmats[],
 void br_initialize(int &argc, char *argv[], const char *sdk_path, bool use_gui)
 {
     Context::initialize(argc, argv, sdk_path, use_gui);
+    if (!Globals)
+        abort();
 }
 
 void br_initialize_default()
@@ -206,6 +219,11 @@ bool br_plot_landmarking(int num_files, const char *files[], const char *destina
 bool br_plot_metadata(int num_files, const char *files[], const char *columns, bool show)
 {
     return PlotMetadata(QtUtils::toStringList(num_files, files), columns, show);
+}
+
+bool br_plot_knn(int num_files, const char *files[], const char *destination, bool show)
+{
+    return PlotKNN(QtUtils::toStringList(num_files, files), destination, show);
 }
 
 float br_progress()
@@ -300,11 +318,16 @@ const char *br_version()
 
 void br_slave_process(const char *baseName)
 {
+#ifndef BR_EMBEDDED
     WorkerProcess *worker = new WorkerProcess;
     worker->transform = Globals->algorithm;
     worker->baseName = baseName;
     worker->mainLoop();
     delete worker;
+#else
+    (void) baseName;
+    qFatal("br_slave_process not supported in embedded builds!");
+#endif
 }
 
 br_template br_load_img(const char *data, int len)
@@ -468,4 +491,9 @@ void br_close_gallery(br_gallery gallery)
 void br_deduplicate(const char *input_gallery, const char *output_gallery, const char *threshold)
 {
     br::Deduplicate(input_gallery, output_gallery, threshold);
+}
+
+void br_likely(const char *input_type, const char *output_type, const char *output_source_file)
+{
+    br::Likely(input_type, output_type, output_source_file);
 }

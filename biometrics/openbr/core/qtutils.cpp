@@ -31,43 +31,12 @@
 
 #include "alphanum.hpp"
 #include "qtutils.h"
+#include "opencvutils.h"
 
 using namespace br;
 
 namespace QtUtils
 {
-
-QStringList getFiles(QDir dir, bool recursive)
-{
-    dir = QDir(dir.canonicalPath());
-
-    QStringList files;
-    foreach (const QString &file, naturalSort(dir.entryList(QDir::Files)))
-        files.append(dir.absoluteFilePath(file));
-
-    if (!recursive) return files;
-
-    foreach (const QString &folder, naturalSort(dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot))) {
-        QDir subdir(dir);
-        bool success = subdir.cd(folder); if (!success) qFatal("cd failure.");
-        files.append(getFiles(subdir, true));
-    }
-    return files;
-}
-
-QStringList getFiles(const QString &regexp)
-{
-    QFileInfo fileInfo(regexp);
-    QDir dir(fileInfo.dir());
-    QRegExp re(fileInfo.fileName());
-    re.setPatternSyntax(QRegExp::Wildcard);
-
-    QStringList files;
-    foreach (const QString &fileName, dir.entryList(QDir::Files))
-        if (re.exactMatch(fileName))
-            files.append(dir.filePath(fileName));
-    return files;
-}
 
 QStringList readLines(const QString &file)
 {
@@ -429,7 +398,7 @@ QString toString(const QVariant &variant)
                                             QString::number(rect.y()),
                                             QString::number(rect.width()),
                                             QString::number(rect.height()));
-    }
+    } else if (variant.canConvert<cv::Mat>()) return OpenCVUtils::matrixToString(variant.value<cv::Mat>());
 
     return QString();
 }
@@ -440,6 +409,21 @@ QString toString(const QVariantList &variantList)
 
     foreach (const QVariant &variant, variantList)
         variants.append(toString(variant));
+
+    if (!variants.isEmpty()) return "[" + variants.join(", ") + "]";
+
+    return QString();
+}
+
+QString toString(const QMap<QString,QVariant> &variantMap)
+{
+    QStringList variants;
+
+    QMapIterator<QString, QVariant> i(variantMap);
+    while (i.hasNext()) {
+        i.next();
+        variants.append(i.key() + "=" + toString(i.value()));
+    }
 
     if (!variants.isEmpty()) return "[" + variants.join(", ") + "]";
 
@@ -461,6 +445,204 @@ float euclideanLength(const QPointF &point)
 {
     return sqrt(pow(point.x(), 2) + pow(point.y(), 2));
 }
+
+float overlap(const QRectF &r, const QRectF &s) {
+    QRectF intersection = r & s;
+
+    return (intersection.width()*intersection.height())/(r.width()*r.height());
+}
+
+
+QString getAbsolutePath(const QString &filename)
+{
+    // Try adding the global path, if present
+    QString withPath = (Globals->path.isEmpty() ? "" : Globals->path + "/") + filename;
+
+    // we weren't necessarily using it to begin with, so see if that file
+    // exists
+    QFileInfo wpInfo(withPath);
+    if (wpInfo.exists() )
+        return wpInfo.absoluteFilePath();
+    
+    // If no, just use the nominal filename
+    return QFileInfo(filename).absoluteFilePath();
+}
+
+const int base_block = 100000000;
+
+BlockCompression::BlockCompression(QIODevice *_basis)
+{
+    blockSize = base_block;
+    setBasis(_basis);
+}
+
+BlockCompression::BlockCompression() { blockSize = base_block;};
+
+bool BlockCompression::open(QIODevice::OpenMode mode)
+{
+    this->setOpenMode(mode);
+    bool res = basis->open(mode);
+
+    if (!res)
+        return false;
+
+    blockReader.setDevice(basis);
+    blockWriter.setDevice(basis);
+
+    if (mode & QIODevice::WriteOnly) {
+        precompressedBlockWriter.open(QIODevice::WriteOnly);
+    }
+    else if (mode & QIODevice::ReadOnly) {
+
+        // Read an initial compressed block from the underlying QIODevice,
+        // decompress, and set up a reader on it
+        QByteArray compressedBlock;
+        quint32 block_size;
+        blockReader >> block_size;
+        compressedBlock.resize(block_size);
+        int read_count = blockReader.readRawData(compressedBlock.data(), block_size);
+        if (read_count != int(block_size))
+            qFatal("Failed to read initial block");
+
+        decompressedBlock = qUncompress(compressedBlock);
+
+        decompressedBlockReader.setBuffer(&decompressedBlock);
+        decompressedBlockReader.open(QIODevice::ReadOnly);
+    }
+
+    return true;
+}
+
+void BlockCompression::close()
+{
+    // flush output buffer, since we may have a partial block which hasn't been 
+    // written to disk yet.
+    if ((openMode() & QIODevice::WriteOnly) && precompressedBlockWriter.isOpen()) {
+        QByteArray compressedBlock = qCompress(precompressedBlockWriter.buffer());
+        precompressedBlockWriter.close();
+
+        quint32 bsize=  compressedBlock.size();
+        blockWriter << bsize;
+        blockWriter.writeRawData(compressedBlock.data(), compressedBlock.size());
+    }
+    // close the underlying device.
+    basis->close();
+}
+
+void BlockCompression::setBasis(QIODevice *_basis)
+{
+    basis = _basis;
+    blockReader.setDevice(basis);
+    blockWriter.setDevice(basis);
+}
+
+// read from current decompressed block, if out of space, read and decompress another
+// block from basis
+qint64 BlockCompression::readData(char *data, qint64 remaining)
+{
+    qint64 read = 0;
+    while (remaining > 0) {
+        // attempt to read the target amount of data
+        qint64 single_read = decompressedBlockReader.read(data, remaining);
+        if (single_read == -1)
+            qFatal("miss read");
+
+        remaining -= single_read;
+        read += single_read;
+        data += single_read;
+
+        // need a new block if we didn't get enough bytes from the previous read
+        if (remaining > 0) {
+            QByteArray compressedBlock;
+
+            // read the size of the next block
+            quint32 block_size;
+            blockReader >> block_size;
+            if (block_size == 0)
+                break;
+
+            compressedBlock.resize(block_size);
+            int actualRead = blockReader.readRawData(compressedBlock.data(), block_size);
+            if (actualRead != int(block_size))
+                qFatal("Bad read on nominal block size: %d, only got %d", block_size, int(remaining));
+
+            decompressedBlock = qUncompress(compressedBlock);
+
+            decompressedBlockReader.close();
+            decompressedBlockReader.setBuffer(&decompressedBlock);
+            decompressedBlockReader.open(QIODevice::ReadOnly);
+        }
+    }
+
+    bool condition = blockReader.atEnd() && !basis->isReadable() ;
+    if (condition)
+        qWarning("Returning -1 from read");
+
+    return condition ? -1 : read;
+}
+
+bool BlockCompression::isSequential() const
+{
+    return true;
+}
+
+qint64 BlockCompression::writeData(const char *data, qint64 remaining)
+{
+    const char * endPoint = data + remaining;
+    qint64 initial = remaining;
+
+    qint64 written = 0;
+
+    while (remaining > 0) {
+        // how much more can be put in this buffer?
+        qint64 capacity = blockSize - precompressedBlockWriter.pos();
+        if (capacity < 0)
+            qFatal("Negative capacity!!!");
+
+        // don't try to write beyond capacity 
+        qint64 write_size = qMin(capacity, remaining);
+
+        qint64 singleWrite = precompressedBlockWriter.write(data, write_size);
+
+        if (singleWrite == -1)
+            qFatal("matrix write failure?");
+
+        remaining -= singleWrite;
+        data += singleWrite;
+        written += singleWrite;
+        if (data > endPoint)
+            qFatal("Wrote past the end");
+
+        if (remaining > 0) {
+            QByteArray compressedBlock = qCompress(precompressedBlockWriter.buffer(), -1);
+
+            if (precompressedBlockWriter.buffer().size() != 0) {
+                quint32 block_size = compressedBlock.size();
+                blockWriter << block_size;
+
+                int write_count = blockWriter.writeRawData(compressedBlock.data(), block_size);
+                if (write_count != int(block_size))
+                    qFatal("Didn't write enough data");
+            }
+            else
+                qFatal("serialized empty compressed block (?)");
+
+            precompressedBlockWriter.close();
+            precompressedBlockWriter.open(QIODevice::WriteOnly);
+        }
+    }
+
+    if (written != initial)
+        qFatal("didn't write enough bytes");
+
+    bool condition = basis->isWritable();
+    if (!condition)
+        qWarning("Returning -1 from write");
+
+    return basis->isWritable() ? written : -1;
+}
+
+
 
 }  // namespace QtUtils
 

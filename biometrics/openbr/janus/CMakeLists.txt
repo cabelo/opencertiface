@@ -6,14 +6,14 @@ set(JANUS_DESCRIPTION "IARPA Janus Program API")
 
 # Extract version info from header file
 macro(janus_get_version VAR)
-  file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/include/janus.h LINE
+  file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/include/iarpa_janus.h LINE
        REGEX "#define[ ]+${VAR}[ ]+[0-9]+")
   string(REGEX MATCH "[0-9]+" ${VAR} ${LINE})
 endmacro(janus_get_version)
 janus_get_version(JANUS_VERSION_MAJOR)
 janus_get_version(JANUS_VERSION_MINOR)
 janus_get_version(JANUS_VERSION_PATCH)
-configure_file(include/janus.h ${CMAKE_CURRENT_BINARY_DIR}/refreshes_version_when_changed)
+configure_file(include/iarpa_janus.h ${CMAKE_CURRENT_BINARY_DIR}/refreshes_version_when_changed)
 set(JANUS_VERSION ${JANUS_VERSION_MAJOR}.${JANUS_VERSION_MINOR}.${JANUS_VERSION_PATCH})
 
 if(UNIX)

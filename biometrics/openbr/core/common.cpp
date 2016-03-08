@@ -19,16 +19,14 @@
 
 using namespace std;
 
-/**** GLOBAL ****/
-void Common::seedRNG() {
-    static QMutex seedControl;
-    QMutexLocker lock(&seedControl);
+static QMutex rngLock;
 
-    static bool seeded = false;
-    if (!seeded) {
-        srand(0); // We seed with 0 instead of time(NULL) to have reproducible randomness
-        seeded = true;
-    }
+/**** GLOBAL ****/
+double Common::randN()
+{
+    // The function rand() is not reentrant or thread-safe, since it uses hidden state that is modified on each call.
+    QMutexLocker lock(&rngLock);
+    return (double)rand() / RAND_MAX;
 }
 
 QList<int> Common::RandSample(int n, int max, int min, bool unique)

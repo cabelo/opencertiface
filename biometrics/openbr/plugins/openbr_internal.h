@@ -6,9 +6,7 @@
 
 namespace br
 {
-/*!
- * \brief A br::Transform that does not require training data.
- */
+
 class BR_EXPORT UntrainableTransform : public Transform
 {
     Q_OBJECT
@@ -23,9 +21,6 @@ private:
     void load(QDataStream &stream) { (void) stream; }
 };
 
-/*!
- * \brief A br::Transform expecting multiple matrices per template.
- */
 class BR_EXPORT MetaTransform : public Transform
 {
     Q_OBJECT
@@ -34,9 +29,6 @@ protected:
     MetaTransform() : Transform(false) {}
 };
 
-/*!
- * \brief A br::MetaTransform that does not require training data.
- */
 class BR_EXPORT UntrainableMetaTransform : public UntrainableTransform
 {
     Q_OBJECT
@@ -97,9 +89,6 @@ private:
     Transform *baseTransform;
 };
 
-/*!
- * \brief A br::Transform for which the results of project may change due to prior calls to project
- */
 class BR_EXPORT TimeVaryingTransform : public Transform
 {
     Q_OBJECT
@@ -135,10 +124,6 @@ public:
         }
     }
 
-    /*!
-     *\brief For transforms that don't do any training, this default implementation
-     * which creates a new copy of the Transform from its description string is sufficient.
-     */
     virtual Transform *smartCopy(bool &newTransform)
     {
         newTransform = true;
@@ -155,9 +140,6 @@ protected:
     }
 };
 
-/*!
- * \brief Interface for transforms that act as decorators of another transform
- */
 class BR_EXPORT WrapperTransform : public TimeVaryingTransform
 {
     Q_OBJECT
@@ -174,6 +156,11 @@ public:
     void project(const Template &src, Template &dst) const
     {
         transform->project(src,dst);
+    }
+
+    void project(const TemplateList &src, TemplateList &dst) const
+    {
+        transform->project(src, dst);
     }
 
     void projectUpdate(const Template &src, Template &dst)
@@ -227,19 +214,6 @@ public:
         return output;
     }
 
-
-    bool setPropertyRecursive(const QString &name, QVariant value)
-    {
-        if (br::Object::setPropertyRecursive(name, value))
-            return true;
-
-        if (transform->setPropertyRecursive(name, value)) {
-            init();
-            return true;
-        }
-        return false;
-    }
-
     Transform *smartCopy(bool &newTransform)
     {
         if (!timeVarying()) {
@@ -269,9 +243,6 @@ public:
 
 };
 
-/*!
- * \brief A MetaTransform that aggregates some sub-transforms
- */
 class BR_EXPORT CompositeTransform : public TimeVaryingTransform
 {
     Q_OBJECT
@@ -311,12 +282,6 @@ public:
         }
     }
 
-    /*!
-     * \brief Composite transforms need to create a copy of themselves if they
-     * have any time-varying children. If this object is flagged as time-varying,
-     * it creates a new copy of its own class, and gives that copy the child transforms
-     * returned by calling smartCopy on this transforms children
-     */
     Transform *smartCopy(bool &newTransform)
     {
         if (!timeVarying()) {
@@ -392,21 +357,6 @@ public:
         return output;
     }
 
-    bool setPropertyRecursive(const QString &name, QVariant value)
-    {
-        if (br::Object::setPropertyRecursive(name, value))
-            return true;
-
-        for (int i=0; i < this->transforms.size();i++) {
-            if (transforms[i]->setPropertyRecursive(name, value)) {
-                init();
-                return true;
-            }
-        }
-        return false;
-    }
-
-
 protected:
     bool isTimeVarying;
 
@@ -428,9 +378,6 @@ struct WorkerProcess
     void mainLoop();
 };
 
-/*!
- * \brief A br::Transform that operates solely on metadata
- */
 class MetadataTransform : public Transform
 {
     Q_OBJECT
@@ -448,9 +395,6 @@ protected:
     MetadataTransform(bool trainable = true) : Transform(false,trainable) {}
 };
 
-/*!
- * \brief A br::Transform that operates solely on metadata, and is untrainable
- */
 class UntrainableMetadataTransform : public MetadataTransform
 {
     Q_OBJECT
@@ -464,14 +408,17 @@ class FileGallery : public Gallery
     Q_OBJECT
 public:
     QFile f;
-    qint64 fileSize;
 
     virtual ~FileGallery() { f.close(); }
 
     void init();
 
-    qint64 totalSize() { return fileSize; }
+    qint64 totalSize();
     qint64 position() { return f.pos(); }
+
+    bool readOpen();
+    void writeOpen();
+
 };
 
 
@@ -497,6 +444,35 @@ typedef QList<Neighbor> Neighbors;
 typedef QVector<Neighbors> Neighborhood;
 
 BR_EXPORT bool compareNeighbors(const Neighbor &a, const Neighbor &b);
+
+class BR_EXPORT UntrainableDistance : public Distance
+{
+    Q_OBJECT
+
+private:
+    bool trainable() { return false; }
+    void train(const TemplateList &data) { (void) data; }
+};
+
+/*!
+ * \brief A br::Distance that checks the elements of its list property to see if it needs to be trained.
+ */
+class BR_EXPORT ListDistance : public Distance
+{
+    Q_OBJECT
+
+public:
+    Q_PROPERTY(QList<br::Distance*> distances READ get_distances WRITE set_distances RESET reset_distances)
+    BR_PROPERTY(QList<br::Distance*>, distances, QList<br::Distance*>())
+
+    bool trainable()
+    {
+        for (int i=0; i<distances.size(); i++)
+            if (distances[i]->trainable())
+                return true;
+        return false;
+    }
+};
 
 }
 
