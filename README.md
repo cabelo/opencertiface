@@ -9,6 +9,9 @@ Versão 1.0
 * Código cliente exemplo em C, Java, Bash e PHP
 * Abstração do algoritmo openbr
 
+Versão 1.10
+* Upgrade do algoritmo biometrico openBR
+
 RoadMap
 * Implementar API para cálculo de estimativa de idade
 * Implementar API para cálculo de estimativa de sexo
