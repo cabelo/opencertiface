@@ -10,7 +10,7 @@ Versão 1.0
 * Abstração do algoritmo openbr
 
 Versão 1.10
-* Upgrade do algoritmo biometrico openBR
+* Upgrade do algoritmo biométrico openBR
 
 RoadMap
 * Implementar API para cálculo de estimativa de idade
