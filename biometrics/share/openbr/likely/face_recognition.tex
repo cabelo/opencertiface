@@ -1,0 +1,161 @@
+\documentclass{article}
+\usepackage{listings}
+\usepackage{upquote}
+\usepackage{verbatim}
+
+\lstnewenvironment{likely}{
+  \lstset{
+    basicstyle=\ttfamily,
+    showstringspaces=false
+  }}{}
+
+\title{Face Recognition in Likely}
+\author{Joshua C. Klontz}
+\date{\today}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This document represents a long-term effort to port the OpenBR face recognition algorithm to \emph{Likely}\footnote{www.liblikely.org}.
+As Likely is a literate programming language, this document is both the source code \emph{and} the documentation.
+\end{abstract}
+
+\section{Compilation}
+\label{sec:compilation}
+This document is a valid \LaTeX\ file that can be rendered for reading by humans.
+
+\begin{verbatim}
+$ pdflatex face_recognition.tex
+\end{verbatim}
+
+It is also a valid Likely file that can be trained/compiled for reading by machines.
+
+\begin{verbatim}
+$ likely -p 'data := "path/to/training/data.lm".read-matrix' \
+face_recognition.tex face_recognition.o
+\end{verbatim}
+
+Note that the outputted \texttt{face\_recognition.o} native object file exposes its functionality through a C-compatible signature.
+
+\begin{verbatim}
+#include <likely.h>
+likely_mat face_recognition(likely_const_mat src);
+\end{verbatim}
+
+\section{Introduction}
+We start our journey constructing the face recognition algorithm with an identity function.
+
+\begin{likely}
+face-recognition :=
+  src :->
+    src
+\end{likely}
+
+Throughout the remainder of this document we will append additional steps to this function, building up the entire algorithm one transformation at a time.
+It is the responsibility of each section in this document to update the \texttt{face-recognition} function and the training \texttt{data}.
+It is in this way that the sections maintain independence, and the algorithm can be changed by inserting, removing, or editing sections of this document.
+Remember that the \emph{Likely Language Reference}\footnote{https://s3.amazonaws.com/liblikely/latex/standard.pdf} is a good resource to consult if you are uncertain about the meaning of some code.
+
+Note that the remainder of this document assumes that the global variable 
+\texttt{data} is defined, and contains the appropriate training samples.
+
+\begin{likely}
+"Number of training samples:"
+data.frames
+\end{likely}
+
+\section{...}
+This section serves as a placeholder for the unwritten algorithm steps.
+There are a lot of steps that haven't been written yet, including face detection, registration and representation!
+In fact, only the final few sections of the algorithm have been written.
+
+\section{L2 Normalization}
+We wish to normalize every feature vector to a unit L2 norm, ensuring that they live on a high-dimensional unit sphere.
+Such a normalization has been observed to improve accuracy when comparing feature vectors using a Euclidean distance.
+
+\begin{likely}
+normalize-l2 :=
+  src :->
+  {
+    dst := src.imitate
+    len := src.columns
+    ((src.channels 1 src.rows src.frames)
+     dst src len) :=>
+    {
+      norm := 0.(cast src).$
+      (iter (-> x (<- norm (+ norm src.sq)))
+            len)
+      norm := (/ 1 (sqrt norm))        
+      (iter (-> x (<- dst (* src norm)))
+            len)
+    }
+  }
+\end{likely}
+
+Now we can re-define \texttt{face-recognition} to append L2 normalization.
+
+\begin{likely}
+face-recognition :=
+  src :->
+    src.face-recognition.normalize-l2
+\end{likely}
+
+And project the training data.
+
+\begin{likely}
+data := [ data.normalize-l2 ]
+\end{likely}
+
+\section{Quantization}
+The goal of quantization is to rescale and cast feature vector dimensions into 8-bit unsigned integers.
+The resulting feature vectors are smaller in size and faster to compare, with generally negligible loss in representation accuracy.
+Training data is required to determine the scaling parameters.
+
+\begin{likely}
+train-quantize :=
+  (training-samples) :->
+  {
+    lo    := [ training-samples.min-element  ]
+    hi    := [ training-samples.max-element  ]
+    scale := [ (/ 255 (- hi lo)) ]
+
+    src :->
+    {
+      dst := (imitate-size src (imitate-dimensions u8 src.type))
+      (dst src) :=>
+        dst :<- src.(- lo).(* scale)
+    }
+  }
+
+quantize := (train-quantize data)
+\end{likely}
+
+Now we can re-define \texttt{face-recognition} to append quantization.
+
+\begin{likely}
+face-recognition :=
+  src :->
+    src.face-recognition.quantize
+\end{likely}
+
+And project the training data.
+
+\begin{likely}
+data := [ data.quantize ]
+\end{likely}
+
+And report some statistics.
+
+\begin{likely}
+"Quantized feature vector dimensionality:"
+data.columns
+\end{likely}
+
+\section{Entry Point}
+Recall from section \ref{sec:compilation} that the entry point to the outside world is a single C function \texttt{face\_recognition} that takes as input a \texttt{likely\_mat} (the input image) and outputs a new \texttt{likely\_mat} (the feature vector). Now that we have finished defining \texttt{face-recognition} we can finally export this symbol.
+
+\begin{likely}
+(extern u8X "face_recognition" f32X face-recognition)
+\end{likely}
+
+\end{document}
