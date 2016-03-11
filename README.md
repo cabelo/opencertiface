@@ -9,7 +9,7 @@ Versão 1.0
 * Código cliente exemplo em C, Java, Bash e PHP
 * Abstração do algoritmo openbr
 
-Versão 1.10
+Versão 1.10 
 * Upgrade do algoritmo biométrico openBR
 
 RoadMap
